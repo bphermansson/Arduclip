@@ -23,7 +23,11 @@ int redLed=12;
 int loadL;
 int loadR;
 
+int loadlimit=80;  // Sets limit off the load on the drive wheels
+
 int speed;
+String status="stop";
+
 
 #define loadPinL 0
 #define loadPinR 1
@@ -76,7 +80,25 @@ void setup() {
   delay(2000);
   digitalWrite(enR, LOW);
   delay(2000);
+  
+  
+  rotateL(100);
+  delay(2000);
+  stop();
+  delay(1000);
+  rotateR(100);
+  delay(2000);
+  stop(); 
+  delay(1000);
+  goFwd(100);
+  delay(2000);
+  stop(); 
+  delay(1000);
+  goRew(100);
+  delay(2000);
+  stop(); 
   */
+  
   digitalWrite(onboardLed, HIGH);
   delay(500);
   digitalWrite(ylwLed, HIGH);
@@ -84,7 +106,8 @@ void setup() {
   digitalWrite(redLed, HIGH);
 
   // Wait before we start running
-  delay(10000);
+  Serial.print("Wait...");
+  delay(1000);
 
   Serial.println("Setup done"); 
 
@@ -95,32 +118,48 @@ void loop() {
   startTime = millis(); //Calculate the time since last time the cycle was completed
   // Start slowly
   speed = 100;
-  goFwd(speed);
+  if (status=="Stop") {
+    //goFwd(speed);
+  }
+
+  Serial.println(status);
 
   // Measure drive wheel load
   loadL = analogRead(loadPinL);
   loadR = analogRead(loadPinR);
 
-  if (loadL>80 || loadR >80) {  // High load, we are running in to something?
+  if (loadL>=loadlimit || loadR >=loadlimit) {  // High load, we are running in to something?
     // Turn around
-    
+    Serial.println("High drive wheel load, turn around");
+    stop();
+    delay(1000);
+    rotateL(100);
+    delay(2000);
+    stop();
+    delay(1000);
   }
-
+/*
   unsigned long timeNow=millis();
   Serial.println(timeNow);
   
   while (timeNow -startTime<= 30000)  {
     timeNow=millis();
     loadL = analogRead(loadPinL);
+    Serial.print("Load L: ");
     Serial.println(loadL);
+    loadR = analogRead(loadPinR);
+    Serial.print("Load R: ");
+    Serial.println(loadR);
+    
     delay(300);
   }
-  // Stop
-  digitalWrite(enL, LOW);
-  digitalWrite(enR, LOW);
+  stop();
   while(1){
     
   }
+  */
+  // Wait a while before next loop
+  delay(500);
 }
 
 void goFwd(int speed) {
@@ -128,10 +167,47 @@ void goFwd(int speed) {
   analogWrite(pwmL, speed);//Sets speed variable via PWM 
   digitalWrite(dirL, HIGH);
   digitalWrite(enL, HIGH);
-  
   analogWrite(pwmR, speed);//Sets speed variable via PWM 
   digitalWrite(dirR, HIGH);  
   digitalWrite(enR, HIGH);
+  status="Forward";
 }
+void goRew(int speed) {
+  analogWrite(pwmL, speed);//Sets speed variable via PWM 
+  digitalWrite(dirL, LOW);
+  digitalWrite(enL, HIGH);
+  analogWrite(pwmR, speed);//Sets speed variable via PWM 
+  digitalWrite(dirR, LOW);  
+  digitalWrite(enR, HIGH);
+  status="Reverse";
 
+}
+void rotateL(int speed) {
+  // RotateLeft
+  analogWrite(pwmL, speed);//Sets speed variable via PWM 
+  digitalWrite(dirL, HIGH);
+  digitalWrite(enL, HIGH);
+  analogWrite(pwmR, speed);//Sets speed variable via PWM 
+  digitalWrite(dirR, LOW);  
+  digitalWrite(enR, HIGH);
+  status="Rotate Left";
 
+}
+void rotateR(int speed) {
+  // RotateLeft
+  analogWrite(pwmL, speed);//Sets speed variable via PWM 
+  digitalWrite(dirL, LOW);
+  digitalWrite(enL, HIGH);
+  analogWrite(pwmR, speed);//Sets speed variable via PWM 
+  digitalWrite(dirR, HIGH);  
+  digitalWrite(enR, HIGH);
+  status="Rotate Right";
+
+}
+void stop() {
+  // Stop
+  digitalWrite(enL, LOW);
+  digitalWrite(enR, LOW);
+  status="Stop";
+
+}
