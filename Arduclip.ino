@@ -53,6 +53,10 @@ float r2 = 2200;   // "Bottom" resistor (to ground), 2.2 kohm.
 int sda = A4;
 int scl = A5;
 
+// Distance sensor
+#define trigPin 2
+#define echoPin 4
+
 /* Free pins
 A2, A3, D2, D3, D4
 Proposed use:
@@ -61,8 +65,7 @@ A2 - Cutter motor hall sensor
 D2 - Distance sensor trig
 D3(pwm) - Cutter motor control
 D4 - Distance sensor echo
-#define trigPin 2
-#define echoPin 4
+
 
 How about a distance sensor in the back too?
 
@@ -108,7 +111,16 @@ void setup() {
   Serial.print(battv);
   Serial.println("V");
 
-  // Initial test
+  // Define pins for HC-SR04
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  
+  // Measure distance
+  long dist = distance();
+  Serial.print("Distance: ");
+  Serial.println(dist);
+  
+  // Initial motor test
   /*
   analogWrite(pwmL, 100);//Sets speed variable via PWM 
   digitalWrite(dirL, HIGH);
@@ -159,11 +171,9 @@ void setup() {
 
   // Wait before we start running
   Serial.print("Wait...");
-  delay(1000);
+  delay(10000);
 
   Serial.println("Setup done"); 
-
-
 }
 
 void loop() {
@@ -171,7 +181,7 @@ void loop() {
   // Start slowly
   speed = 100;
   if (status=="Stop") {
-    //goFwd(speed);
+    goFwd(speed);
   }
 
   Serial.println(status);
@@ -190,6 +200,17 @@ void loop() {
     stop();
     delay(1000);
   }
+
+  // Measure distance
+  long dist = distance();
+  Serial.print("Distance: ");
+  Serial.println(dist);
+
+  int battv = batt();
+  Serial.print ("B: ");
+  Serial.print(battv);
+  Serial.println("V");
+  
 /*
   unsigned long timeNow=millis();
   Serial.println(timeNow);
@@ -272,4 +293,19 @@ int batt() {
   Serial.print("Battery: ");
   Serial.print(volt2);
   Serial.println("V");
+  return volt2;
+}
+
+long distance() {
+  // Measure distance to sensor
+  long duration, distance;
+  digitalWrite(trigPin, LOW);  // Added this line
+  delayMicroseconds(2); // Added this line
+  digitalWrite(trigPin, HIGH);
+  //  delayMicroseconds(1000); - Removed this line
+  delayMicroseconds(10); // Added this line
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration/2) / 29.1;
+  return distance;
 }
