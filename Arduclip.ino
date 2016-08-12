@@ -2,12 +2,22 @@
 
 /*
  * TODO
- * Add green led
+ * Change red led to green(Add green led)
+ * Battery monitor
+ * Check signals from cutter motor hall sensor
  * Control cutter motor
  * Add on/off switch
+ * Distance sensor HC-SR04
  */
 
-// Connections for motor drivers
+/*
+ * Battery monitor
+ * Max V = 30V
+ * Battery + --- 11k(10k+1k) --- sense --- 2.2k --- Ground
+ * Gives 5 volt @sense @ 30V on battery
+ */
+
+// Connections for wheel motor drivers
 int dirL = 7;
 int pwmL = 5;
 int enL = 9;
@@ -15,22 +25,48 @@ int dirR = 8;
 int pwmR = 6;
 int enR = 10;
 
-int onboardLed=13;
+// Connections for cutter motor
+// Mähmotor: 24V, 120W, 4000 rpm, Bürsten (FISE M5930C04004), Motorstrom etwa 3A mit Messer
+
+// Indicator leds
 int ylwLed=11;
 int redLed=12;
+int onboardLed=13;
 
 // Motor driver has a current sensor resistor, used to determin load on drive wheels
 int loadL;
 int loadR;
-
+// A0 and A1 reads the values
+#define loadPinL 0
+#define loadPinR 1
 int loadlimit=80;  // Sets limit off the load on the drive wheels
+
+// I2C display
+int sda = A4;
+int scl = A5;
+
+/* Free pins
+A2, A3, D2, D3, D4
+Proposed use:
+A2 - Cutter motor hall sensor
+A3 - Cutter motor current sense
+D2 - Distance sensor trig
+D3(pwm) - Cutter motor control
+D4 - Distance sensor echo
+#define trigPin 2
+#define echoPin 4
+
+How about a distance sensor in the back too?
+
+Save pins with charlieplexing?
+Or 
+pin 1 --- 100ohm --- led1 anode --- led1 cathode --- 100ohm --- pin2
+                  |--led2 cathode---led2 anode--- |    
+
+*/
 
 int speed;
 String status="stop";
-
-
-#define loadPinL 0
-#define loadPinR 1
 
 unsigned long startTime = 0;
 
