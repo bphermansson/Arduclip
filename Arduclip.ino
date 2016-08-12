@@ -41,6 +41,14 @@ int loadR;
 #define loadPinR 1
 int loadlimit=80;  // Sets limit off the load on the drive wheels
 
+// Measure battery voltage
+int batteryVoltage;
+#define voltsens 3
+
+float vPow = 5.02; // Voltage at the Arduinos Vcc and Vref. 
+float r1 = 11000;  // "Top" resistor, 11k (10+1)
+float r2 = 2200;   // "Bottom" resistor (to ground), 2.2 kohm. 
+
 // I2C display
 int sda = A4;
 int scl = A5;
@@ -49,7 +57,7 @@ int scl = A5;
 A2, A3, D2, D3, D4
 Proposed use:
 A2 - Cutter motor hall sensor
-A3 - Cutter motor current sense
+(A3 - Cutter motor current sense) - Has to be used for battery sensor!
 D2 - Distance sensor trig
 D3(pwm) - Cutter motor control
 D4 - Distance sensor echo
@@ -91,6 +99,14 @@ void setup() {
   // Load detection
   pinMode(loadPinL, INPUT);
   pinMode(loadPinR, INPUT);
+
+  // Battery voltage
+  pinMode(voltsens, INPUT);
+
+  int battv = batt();
+  Serial.print ("B: ");
+  Serial.print(battv);
+  Serial.println("V");
 
   // Initial test
   /*
@@ -246,4 +262,14 @@ void stop() {
   digitalWrite(enR, LOW);
   status="Stop";
 
+}
+int batt() {
+  int adcvalue = analogRead(voltsens);
+  Serial.print("Batt adc: ");
+  Serial.println(adcvalue);
+  int volt = (adcvalue * vPow) / 1024.0;
+  int volt2 = volt / (r2 / (r1 + r2));
+  Serial.print("Battery: ");
+  Serial.print(volt2);
+  Serial.println("V");
 }
