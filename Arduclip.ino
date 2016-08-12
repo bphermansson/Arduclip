@@ -180,11 +180,36 @@ void loop() {
   startTime = millis(); //Calculate the time since last time the cycle was completed
   // Start slowly
   speed = 100;
-  if (status=="Stop") {
-    goFwd(speed);
+  if (status=="stop") {
+    //goFwd(speed);
   }
 
   Serial.println(status);
+
+  // Measure distance
+  long dist = distance();
+  Serial.print("Distance: ");
+  Serial.println(dist);
+
+  // We are near something
+  if (dist<=20) {
+    // Turn around
+    Serial.println("We are close to something, turn around");
+    turnAroundL();
+  }
+
+  // Measure battery
+  int battv = batt();
+  Serial.print ("Battery (times 10): ");
+  Serial.print(battv);
+  Serial.println("V");
+
+  // Battery low?
+  if (battv<=215){
+    // Battery volt is to low!
+    digitalWrite(redLed, HIGH);
+    status="stop";
+  }
 
   // Measure drive wheel load
   loadL = analogRead(loadPinL);
@@ -193,23 +218,10 @@ void loop() {
   if (loadL>=loadlimit || loadR >=loadlimit) {  // High load, we are running in to something?
     // Turn around
     Serial.println("High drive wheel load, turn around");
-    stop();
-    delay(1000);
-    rotateL(100);
-    delay(2000);
-    stop();
-    delay(1000);
+    turnAroundL();
   }
 
-  // Measure distance
-  long dist = distance();
-  Serial.print("Distance: ");
-  Serial.println(dist);
 
-  int battv = batt();
-  Serial.print ("B: ");
-  Serial.print(battv);
-  Serial.println("V");
   
 /*
   unsigned long timeNow=millis();
@@ -277,6 +289,18 @@ void rotateR(int speed) {
   status="Rotate Right";
 
 }
+
+void turnAroundL() {
+    // Turn around, ccw
+    Serial.println("Turn around ccw");
+    stop();
+    delay(1000);
+    rotateL(100);
+    delay(2000);
+    stop();
+    delay(1000);
+}
+
 void stop() {
   // Stop
   digitalWrite(enL, LOW);
@@ -288,7 +312,7 @@ int batt() {
   int adcvalue = analogRead(voltsens);
   //Serial.print("Batt adc: ");
   //Serial.println(adcvalue);
-  int volt = (adcvalue * vPow) / 1024.0;
+  int volt = (adcvalue * vPow*10) / 1024.0;   // Multiply by ten -> gives a 'decimal' with an int
   int volt2 = volt / (r2 / (r1 + r2));
   //Serial.print("Battery: ");
   //Serial.print(volt2);
