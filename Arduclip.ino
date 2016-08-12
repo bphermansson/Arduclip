@@ -286,13 +286,13 @@ void stop() {
 }
 int batt() {
   int adcvalue = analogRead(voltsens);
-  Serial.print("Batt adc: ");
-  Serial.println(adcvalue);
+  //Serial.print("Batt adc: ");
+  //Serial.println(adcvalue);
   int volt = (adcvalue * vPow) / 1024.0;
   int volt2 = volt / (r2 / (r1 + r2));
-  Serial.print("Battery: ");
-  Serial.print(volt2);
-  Serial.println("V");
+  //Serial.print("Battery: ");
+  //Serial.print(volt2);
+  //Serial.println("V");
   return volt2;
 }
 
