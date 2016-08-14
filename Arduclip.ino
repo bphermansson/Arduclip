@@ -37,6 +37,8 @@ int battLed=13; // Red led mounted on Arduino
 int battledState = LOW; 
 unsigned long previousMillis = 0;
 int interval = 1000; 
+// Interval for checking battery voltage
+int batt_timer;
 
 // Motor driver has a current sensor resistor, used to determin load on drive wheels
 int loadL;
@@ -47,6 +49,7 @@ int loadR;
 int loadlimit=80;  // Sets limit off the load on the drive wheels
 
 // Measure battery voltage
+int battv;  // Holds battery voltage value
 int batteryVoltage;
 #define voltsens 3
 
@@ -111,7 +114,7 @@ void setup() {
   // Battery voltage
   pinMode(voltsens, INPUT);
 
-  int battv = batt();
+  battv = batt();
   Serial.print ("B: ");
   Serial.print(battv);
   Serial.println("V");
@@ -190,10 +193,8 @@ void loop() {
   
   // For battery heartbeat
   unsigned long currentMillis = millis();
-  // Interval for checking battery voltage
-  int batt_timer;
+
   
-  int battv;  // Holds battery voltage value
 
   // Check battery voltage
   if (batt_timer==10) {   // Dont check battery every time
@@ -211,7 +212,10 @@ void loop() {
     }
     batt_timer=0;   // Reset counter
   }
-  batt_timer++;
+  batt_timer=batt_timer+1;
+  // Debug
+  Serial.print("batt_timer: ");
+  Serial.println(batt_timer);
 
   // Battery heartbeat
   /* battv is something between 290 and 215
@@ -219,10 +223,13 @@ void loop() {
   * Remove 210 -> 5-80 
   * 
   */
+  Serial.println(battv);
   interval = battv - 210;
   if (interval>=40) {     // Adjust at higher battery levels
     interval=interval/2;
   }
+  interval=interval*100;  // Adjust to visible value
+  
   // Debug
   Serial.print("battLed interval:"); 
   Serial.println(interval);
@@ -256,7 +263,7 @@ void loop() {
   Serial.println(dist);
 
   // We are near something
-  if (dist<=20) {
+  if (dist<=10) {
     // Turn around
     Serial.println("We are close to something, turn around");
     turnAroundL();
@@ -349,7 +356,7 @@ void turnAroundL() {
     stop();
     delay(1000);
     rotateL(100);
-    delay(2000);
+    delay(3000);
     stop();
     delay(1000);
 }
