@@ -2,12 +2,12 @@
 
 /*
  * TODO
- * Change red led to green(Add green led)
- * Battery monitor
+ * Change red led to green(Add green led) - OK
+ * Battery monitor - OK
  * Check signals from cutter motor hall sensor
  * Control cutter motor
  * Add on/off switch
- * Distance sensor HC-SR04
+ * Distance sensor HC-SR04 - OK
  */
 
 /*
@@ -31,7 +31,12 @@ int enR = 10;
 // Indicator leds
 int ylwLed=11;
 int redLed=12;
-int onboardLed=13;
+int battLed=13; // Red led mounted on Arduino
+
+// For battery heartbeat. The red led onboard blinks at an interval determined by the battery level
+int battledState = LOW; 
+unsigned long previousMillis = 0;
+int interval = 1000; 
 
 // Motor driver has a current sensor resistor, used to determin load on drive wheels
 int loadL;
@@ -95,7 +100,7 @@ void setup() {
   pinMode(enR,OUTPUT);
 
   // Indicator leds
-  pinMode(onboardLed,OUTPUT);  
+  pinMode(battLed,OUTPUT);  
   pinMode(ylwLed,OUTPUT);  
   pinMode(redLed,OUTPUT);  
 
@@ -163,21 +168,80 @@ void setup() {
   stop(); 
   */
   
-  digitalWrite(onboardLed, HIGH);
-  delay(500);
-  digitalWrite(ylwLed, HIGH);
-  delay(500);
-  digitalWrite(redLed, HIGH);
+  //digitalWrite(onboardLed, HIGH);
+  //delay(500);
+  //digitalWrite(ylwLed, HIGH);
+  //delay(500);
+  //digitalWrite(redLed, HIGH);
 
   // Wait before we start running
   Serial.print("Wait...");
-  delay(10000);
-
+  for (int x=0;x<=9;x++) {
+    digitalWrite(battLed, HIGH);
+    delay(300);
+    digitalWrite(battLed, LOW);
+    delay(700);
+  }
   Serial.println("Setup done"); 
 }
 
 void loop() {
-  startTime = millis(); //Calculate the time since last time the cycle was completed
+  //startTime = millis(); //Calculate the time since last time the cycle was completed
+  
+  // For battery heartbeat
+  unsigned long currentMillis = millis();
+  // Interval for checking battery voltage
+  int batt_timer;
+  
+  int battv;  // Holds battery voltage value
+
+  // Check battery voltage
+  if (batt_timer==10) {   // Dont check battery every time
+    // Measure battery
+    battv = batt();
+    Serial.print ("Battery (times 10): ");
+    Serial.print(battv);
+    Serial.println("V");
+
+    // Battery low?
+    if (battv<=215){
+      // Battery volt is to low!
+      digitalWrite(battLed, HIGH);
+      status="stop";
+    }
+    batt_timer=0;   // Reset counter
+  }
+  batt_timer++;
+
+  // Battery heartbeat
+  /* battv is something between 290 and 215
+  * If its low, blink fast
+  * Remove 210 -> 5-80 
+  * 
+  */
+  interval = battv - 210;
+  if (interval>=40) {     // Adjust at higher battery levels
+    interval=interval/2;
+  }
+  // Debug
+  Serial.print("battLed interval:"); 
+  Serial.println(interval);
+  
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    if (battledState == LOW) {
+      battledState = HIGH;
+    } else {
+      battledState = LOW;
+    }
+
+    // set the LED with the ledState of the variable:
+    digitalWrite(battLed, battledState);
+  }
+
+  
+ 
+  
   // Start slowly
   speed = 100;
   if (status=="stop") {
@@ -198,19 +262,8 @@ void loop() {
     turnAroundL();
   }
 
-  // Measure battery
-  int battv = batt();
-  Serial.print ("Battery (times 10): ");
-  Serial.print(battv);
-  Serial.println("V");
 
-  // Battery low?
-  if (battv<=215){
-    // Battery volt is to low!
-    digitalWrite(redLed, HIGH);
-    status="stop";
-  }
-
+  
   // Measure drive wheel load
   loadL = analogRead(loadPinL);
   loadR = analogRead(loadPinR);
