@@ -1,5 +1,8 @@
 
-
+/*
+ * Uses an Arduino Duemilanove clone
+ * 
+ */
 /*
  * TODO
  * Change red led to green(Add green led) - OK
@@ -7,7 +10,8 @@
  * Check signals from cutter motor hall sensor
  * Control cutter motor
  * Add on/off switch
- * Distance sensor HC-SR04 - OK
+ * Front distance sensor HC-SR04 - OK
+ * Back distance sensor HC-SR04 - ?
  */
 
 /*
@@ -31,7 +35,7 @@ int enR = 10;
 // Indicator leds
 int ylwLed=11;
 int redLed=12;
-int battLed=13; // Red led mounted on Arduino
+int battLed=13; // Green led mounted on Arduino
 
 // For battery heartbeat. The red led onboard blinks at an interval determined by the battery level
 int battledState = LOW; 
@@ -47,11 +51,12 @@ int loadR;
 #define loadPinL 0
 #define loadPinR 1
 int loadlimit=80;  // Sets limit off the load on the drive wheels
+int loadcounter; // Counter that gets added while high load. Used for not giving up directly on high load
 
 // Measure battery voltage
 int battv;  // Holds battery voltage value
 int batteryVoltage;
-#define voltsens 3
+#define voltsens 2
 
 float vPow = 5.02; // Voltage at the Arduinos Vcc and Vref. 
 float r1 = 11000;  // "Top" resistor, 11k (10+1)
@@ -65,15 +70,13 @@ int scl = A5;
 #define trigPin 2
 #define echoPin 4
 
-/* Free pins
-A2, A3, D2, D3, D4
-Proposed use:
-A2 - Cutter motor hall sensor
-(A3 - Cutter motor current sense) - Has to be used for battery sensor!
-D2 - Distance sensor trig
-D3(pwm) - Cutter motor control
-D4 - Distance sensor echo
+//A3 - Cutter motor current sense
+//D3(pwm) - Cutter motor control
+int cutterPower = A3;
+int cutterCtrl = 3; 
 
+/* 
+Communicate with grass-sensor Mcu via I2C. 
 
 How about a distance sensor in the back too?
 
@@ -102,6 +105,10 @@ void setup() {
   pinMode(pwmR,OUTPUT);
   pinMode(enR,OUTPUT);
 
+  // Cutter
+  pinMode(cutterCtrl,OUTPUT);
+  pinMode(cutterPower,INPUT);
+
   // Indicator leds
   pinMode(battLed,OUTPUT);  
   pinMode(ylwLed,OUTPUT);  
@@ -129,6 +136,11 @@ void setup() {
   Serial.println(dist);
   
   // Initial motor test
+  digitalWrite(cutterCtrl, HIGH);
+  Serial.println("Cutter motor test");
+  delay(5000);
+  digitalWrite(cutterCtrl, LOW);
+
   /*
   analogWrite(pwmL, 100);//Sets speed variable via PWM 
   digitalWrite(dirL, HIGH);
@@ -207,6 +219,7 @@ void loop() {
     // Battery low?
     if (battv<=215){
       // Battery volt is to low!
+      Serial.println("Battery low, stop!");
       digitalWrite(battLed, HIGH);
       status="stop";
     }
@@ -251,9 +264,10 @@ void loop() {
   
   // Start slowly
   speed = 100;
-  if (status=="stop") {
-    //goFwd(speed);
-  }
+  //if (status=="stop") {
+    goFwd(speed);
+    status="forward";
+  //}
 
   Serial.println(status);
 
@@ -263,22 +277,25 @@ void loop() {
   Serial.println(dist);
 
   // We are near something
-  if (dist<=10) {
+  if (dist<=13) {
     // Turn around
     Serial.println("We are close to something, turn around");
     turnAroundL();
   }
 
-
-  
   // Measure drive wheel load
   loadL = analogRead(loadPinL);
   loadR = analogRead(loadPinR);
 
   if (loadL>=loadlimit || loadR >=loadlimit) {  // High load, we are running in to something?
-    // Turn around
-    Serial.println("High drive wheel load, turn around");
-    turnAroundL();
+    // Add to load counter
+    loadcounter++;
+    if (loadcounter>=4) {
+      // Turn around
+      Serial.println("High drive wheel load, turn around");
+      turnAroundL();
+      loadcounter=0;
+    }
   }
 
 
@@ -310,19 +327,19 @@ void loop() {
 void goFwd(int speed) {
   // Start your engines
   analogWrite(pwmL, speed);//Sets speed variable via PWM 
-  digitalWrite(dirL, HIGH);
+  digitalWrite(dirL, LOW);
   digitalWrite(enL, HIGH);
   analogWrite(pwmR, speed);//Sets speed variable via PWM 
-  digitalWrite(dirR, HIGH);  
+  digitalWrite(dirR, LOW);  
   digitalWrite(enR, HIGH);
   status="Forward";
 }
 void goRew(int speed) {
   analogWrite(pwmL, speed);//Sets speed variable via PWM 
-  digitalWrite(dirL, LOW);
+  digitalWrite(dirL, HIGH);
   digitalWrite(enL, HIGH);
   analogWrite(pwmR, speed);//Sets speed variable via PWM 
-  digitalWrite(dirR, LOW);  
+  digitalWrite(dirR, HIGH);  
   digitalWrite(enR, HIGH);
   status="Reverse";
 
@@ -356,7 +373,7 @@ void turnAroundL() {
     stop();
     delay(1000);
     rotateL(100);
-    delay(3000);
+    delay(6000);
     stop();
     delay(1000);
 }
