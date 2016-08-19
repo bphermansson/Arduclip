@@ -21,6 +21,9 @@
  * Gives 5 volt @sense @ 30V on battery
  */
 
+// We set the Arduino to sleep if battery is low
+#include <avr/sleep.h> 
+
 // Connections for wheel motor drivers
 int dirL = 7;
 int pwmL = 5;
@@ -29,16 +32,13 @@ int dirR = 8;
 int pwmR = 6;
 int enR = 10;
 
-// Connections for cutter motor
-// Mähmotor: 24V, 120W, 4000 rpm, Bürsten (FISE M5930C04004), Motorstrom etwa 3A mit Messer
-
 // Indicator leds
 int ylwLed=11;
-int redLed=12;
-int battLed=13; // Green led mounted on Arduino
+int battLed=12;   // Red led for battery status
+int statusLed=13; // Green led mounted on Arduino
 
-// For battery heartbeat. The red led onboard blinks at an interval determined by the battery level
-int battledState = LOW; 
+// For battery heartbeat. The green led onboard blinks at an interval determined by the battery level
+int statusLedState = LOW; 
 unsigned long previousMillis = 0;
 int interval = 1000; 
 // Interval for checking battery voltage
@@ -70,8 +70,11 @@ int scl = A5;
 #define trigPin 2
 #define echoPin 4
 
-//A3 - Cutter motor current sense
-//D3(pwm) - Cutter motor control
+/* Connections for cutter motor
+   Mähmotor: 24V, 120W, 4000 rpm, Bürsten (FISE M5930C04004), Motorstrom etwa 3A mit Messer
+   A3 - Cutter motor current sense
+   D3(pwm) - Cutter motor control
+*/
 int cutterPower = A3;
 int cutterCtrl = 3; 
 
@@ -96,7 +99,6 @@ void setup() {
   Serial.begin (57600);
   Serial.println("Welcome to Arduclip"); 
 
-
   // Setup pins for motor drivers
   pinMode(dirL,OUTPUT);
   pinMode(pwmL,OUTPUT);
@@ -106,22 +108,22 @@ void setup() {
   pinMode(enR,OUTPUT);
 
   // Cutter
-  pinMode(cutterCtrl,OUTPUT);
-  pinMode(cutterPower,INPUT);
+  pinMode(cutterCtrl,OUTPUT); // Cutter on/off
+  pinMode(cutterPower,INPUT); // Cutter load
 
   // Indicator leds
-  pinMode(battLed,OUTPUT);  
+  pinMode(statusLed,OUTPUT);  
   pinMode(ylwLed,OUTPUT);  
-  pinMode(redLed,OUTPUT);  
+  pinMode(battLed,OUTPUT);  
 
-  // Load detection
+  // Load detection wheels
   pinMode(loadPinL, INPUT);
   pinMode(loadPinR, INPUT);
 
   // Battery voltage
   pinMode(voltsens, INPUT);
 
-  battv = batt();
+  battv = batt();       // Check
   Serial.print ("B: ");
   Serial.print(battv);
   Serial.println("V");
@@ -136,11 +138,12 @@ void setup() {
   Serial.println(dist);
   
   // Initial motor test
+  /*
   digitalWrite(cutterCtrl, HIGH);
   Serial.println("Cutter motor test");
   delay(5000);
   digitalWrite(cutterCtrl, LOW);
-
+  */
   /*
   analogWrite(pwmL, 100);//Sets speed variable via PWM 
   digitalWrite(dirL, HIGH);
@@ -191,10 +194,10 @@ void setup() {
 
   // Wait before we start running
   Serial.print("Wait...");
-  for (int x=0;x<=9;x++) {
-    digitalWrite(battLed, HIGH);
+  for (int x=0;x<=5;x++) {
+    digitalWrite(statusLed, HIGH);
     delay(300);
-    digitalWrite(battLed, LOW);
+    digitalWrite(statusLed, LOW);
     delay(700);
   }
   Serial.println("Setup done"); 
@@ -205,8 +208,6 @@ void loop() {
   
   // For battery heartbeat
   unsigned long currentMillis = millis();
-
-  
 
   // Check battery voltage
   if (batt_timer==10) {   // Dont check battery every time
@@ -220,8 +221,10 @@ void loop() {
     if (battv<=215){
       // Battery volt is to low!
       Serial.println("Battery low, stop!");
-      digitalWrite(battLed, HIGH);
+      digitalWrite(battLed, HIGH);          // Light up red battery led
       status="stop";
+      set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // Go to sleep to save power and stop execution
+      sleep_enable();   
     }
     batt_timer=0;   // Reset counter
   }
@@ -244,32 +247,28 @@ void loop() {
   interval=interval*100;  // Adjust to visible value
   
   // Debug
-  Serial.print("battLed interval:"); 
+  Serial.print("statusLed interval:"); 
   Serial.println(interval);
   
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
-    if (battledState == LOW) {
-      battledState = HIGH;
+    if (statusLedState == LOW) {
+      statusLedState = HIGH;
     } else {
-      battledState = LOW;
+      statusLedState = LOW;
     }
 
     // set the LED with the ledState of the variable:
-    digitalWrite(battLed, battledState);
+    digitalWrite(statusLed, statusLedState);
   }
-
-  
- 
   
   // Start slowly
   speed = 100;
-  //if (status=="stop") {
+  if (status!="forward") {
     goFwd(speed);
-    status="forward";
-  //}
+  }
 
-  Serial.println(status);
+  //Serial.println(status);
 
   // Measure distance
   long dist = distance();
@@ -280,7 +279,9 @@ void loop() {
   if (dist<=13) {
     // Turn around
     Serial.println("We are close to something, turn around");
+    digitalWrite(ylwLed, HIGH);
     turnAroundL();
+    digitalWrite(ylwLed, LOW);
   }
 
   // Measure drive wheel load
@@ -293,7 +294,9 @@ void loop() {
     if (loadcounter>=4) {
       // Turn around
       Serial.println("High drive wheel load, turn around");
+      digitalWrite(ylwLed, HIGH);
       turnAroundL();
+      digitalWrite(ylwLed, LOW);
       loadcounter=0;
     }
   }
@@ -332,9 +335,16 @@ void goFwd(int speed) {
   analogWrite(pwmR, speed);//Sets speed variable via PWM 
   digitalWrite(dirR, LOW);  
   digitalWrite(enR, HIGH);
-  status="Forward";
+  status="forward";
+
+  // Start cutter motor after a small delay (to prevent a too big current rush)
+  delay(600);
+  digitalWrite(cutterCtrl, HIGH);
 }
 void goRew(int speed) {
+  // Cutter off
+  digitalWrite(cutterCtrl, LOW);
+  // Drive
   analogWrite(pwmL, speed);//Sets speed variable via PWM 
   digitalWrite(dirL, HIGH);
   digitalWrite(enL, HIGH);
@@ -345,6 +355,8 @@ void goRew(int speed) {
 
 }
 void rotateL(int speed) {
+  // Cutter off
+  digitalWrite(cutterCtrl, LOW);
   // RotateLeft
   analogWrite(pwmL, speed);//Sets speed variable via PWM 
   digitalWrite(dirL, HIGH);
@@ -356,6 +368,8 @@ void rotateL(int speed) {
 
 }
 void rotateR(int speed) {
+  // Cutter off
+  digitalWrite(cutterCtrl, LOW);
   // RotateLeft
   analogWrite(pwmL, speed);//Sets speed variable via PWM 
   digitalWrite(dirL, LOW);
@@ -368,6 +382,8 @@ void rotateR(int speed) {
 }
 
 void turnAroundL() {
+  // Cutter off
+  digitalWrite(cutterCtrl, LOW);
     // Turn around, ccw
     Serial.println("Turn around ccw");
     stop();
@@ -379,6 +395,8 @@ void turnAroundL() {
 }
 
 void stop() {
+  // Cutter off
+  digitalWrite(cutterCtrl, LOW);
   // Stop
   digitalWrite(enL, LOW);
   digitalWrite(enR, LOW);
